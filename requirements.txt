@@ -1,0 +1,11 @@
+# LumiBeat Studio – free / open-source dependencies only
+PySide6-Essentials==6.12.0      # Qt GUI (LGPL)
+numpy==2.5.3
+scipy==1.18.1
+PyOpenGL==3.1.10
+fastapi==0.165.0
+uvicorn==0.54.0
+websockets==17.4
+qrcode==8.2
+pillow==13.0.0.post1             # icon generation (tools/make_icon.py)
+PyAudioWPatch==0.2.12.9; sys_platform == "win32"   # WASAPI loopback capture (MIT)

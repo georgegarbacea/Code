@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LumiBeat Remote</title>
+<link rel="icon" href="/static/icon.png">
+<link rel="apple-touch-icon" href="/static/icon.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="login" class="overlay hidden">
+  <div class="login-card">
+    <img src="/static/icon.png" alt="" class="login-logo">
+    <h1>LumiBeat <span>Remote</span></h1>
+    <p>Introdu PIN-ul afișat în aplicație<br><small>(pagina Telefon)</small></p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••••">
+    <button id="loginBtn" class="btn primary">Conectare</button>
+    <div id="loginErr" class="err"></div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="brand"><img src="/static/icon.png" alt=""><div><b>LumiBeat</b><small id="conn">conectare…</small></div></div>
+  <div class="bpm"><span id="beatDot"></span><b id="bpm">--</b><small>BPM</small></div>
+  <button id="power" class="power" aria-label="Pornire / oprire LED">
+    <svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>
+</header>
+
+<section class="stage">
+  <canvas id="wall" width="720" height="300"></canvas>
+  <div class="stage-info"><span id="effName">—</span><span id="section"></span></div>
+</section>
+
+<nav class="tabs">
+  <button data-mode="music" class="tab">Music</button>
+  <button data-mode="party" class="tab">Party</button>
+  <button data-mode="ambient" class="tab">Ambient</button>
+</nav>
+
+<main>
+  <section id="pane-music" class="pane">
+    <h3>Paletă</h3>
+    <div id="palettes" class="chips"></div>
+    <h3>Efecte</h3>
+    <div id="effects" class="grid"></div>
+  </section>
+
+  <section id="pane-party" class="pane">
+    <button id="autodj" class="btn hero">✦ Auto DJ</button>
+    <div id="partyStatus" class="party-status"></div>
+    <h3>Presetări Party</h3>
+    <div id="party" class="grid two"></div>
+    <h3>Durata efectelor</h3>
+    <input type="range" id="duration" min="0.25" max="4" step="0.05">
+  </section>
+
+  <section id="pane-ambient" class="pane">
+    <h3>Scene</h3>
+    <div id="ambient" class="grid two"></div>
+    <h3>Temperatură culoare <small id="tempVal"></small></h3>
+    <input type="range" id="temp" min="1800" max="6500" step="50" class="temp">
+    <h3>Intensitate scenă</h3>
+    <input type="range" id="ambInt" min="0" max="1" step="0.01">
+  </section>
+
+  <section class="controls">
+    <h3>Luminozitate <small id="briVal"></small></h3>
+    <input type="range" id="brightness" min="0" max="1" step="0.01">
+    <h3>Intensitate efect</h3>
+    <input type="range" id="intensity" min="0" max="1.5" step="0.01">
+    <h3>Culoare</h3>
+    <div class="colors">
+      <input type="color" id="color" value="#ff8a3d">
+      <div id="swatches" class="swatches"></div>
+    </div>
+    <div class="strobe-row">
+      <div><b>Stroboscop</b><small>Dezactivat implicit</small></div>
+      <label class="switch"><input type="checkbox" id="strobe"><span></span></label>
+    </div>
+    <div id="presetsWrap" class="hidden">
+      <h3>Presetările mele</h3>
+      <div id="presets" class="chips"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

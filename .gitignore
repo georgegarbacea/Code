@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec.bak
+.pytest_cache/
+packaging/Output/
+packaging/Romanian.isl
+*.log
