@@ -274,6 +274,12 @@ class ArtNetOutput:
                 # port 6454 busy (another Art-Net app) -> send from an ephemeral port
                 s.bind((host, 0))
                 self.last_error = "Portul UDP 6454 este ocupat de altă aplicație; descoperirea poate fi limitată."
+            if hasattr(socket, "SIO_UDP_CONNRESET"):
+                # Windows: an ICMP "port unreachable" would otherwise make recvfrom() fail repeatedly
+                try:
+                    s.ioctl(socket.SIO_UDP_CONNRESET, False)
+                except (OSError, ValueError):
+                    pass
             s.settimeout(0.25)
             self._sock = s
             self._bound_port = s.getsockname()[1]

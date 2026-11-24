@@ -92,6 +92,8 @@ class AudioCapture:
         self._watch_default = ""
         self.block = 512
         self.overruns = 0
+        self._last_packet = time.monotonic()
+        self._last_restart = time.monotonic()
 
     # ------------------------------------------------------------------ public
     def start(self, source: str, device: str = "", block: int = 512) -> None:
@@ -168,7 +170,7 @@ class AudioCapture:
         if info is None:
             self.error = "Nu am găsit niciun dispozitiv de redare pentru loopback."
             return False
-        self._watch_default = "" if device else self._default_output_name()
+        self._watch_default = "" if device else (self._default_output_name() or "default")
         return self._open_pa_stream(info, loopback=True)
 
     def _open_mic(self, device: str) -> bool:
@@ -269,6 +271,7 @@ class AudioCapture:
 
     # ---------------------------------------------------------------- helpers
     def _push(self, a: np.ndarray) -> None:
+        self._last_packet = time.monotonic()
         try:
             self._q.put_nowait((a, time.perf_counter()))
         except queue.Full:
@@ -307,8 +310,12 @@ class AudioCapture:
                 self._watchdog()
 
     def _watchdog(self) -> None:
-        """Restart loopback when Windows switches the default playback device
-        (e.g. headphones plugged in) or the stream died."""
+        """Keep the capture alive.
+
+        * restart a stream that died (device unplugged, driver reset)
+        * loopback of the *default* device: WASAPI delivers no packets while that device is
+          silent.  If nothing arrived for a while, re-resolve the default playback device
+          (the user may have switched speakers / headphones) by restarting the stream."""
         if self.source not in ("loopback", "mic"):
             return
         dead = False
@@ -317,19 +324,11 @@ class AudioCapture:
                 dead = True
         except Exception:
             dead = True
-        changed = False
-        if self.source == "loopback" and self._watch_default and HAVE_PAW:
-            try:
-                p = pyaudio.PyAudio()
-                try:
-                    w = p.get_host_api_info_by_type(pyaudio.paWASAPI)
-                    name = p.get_device_info_by_index(w["defaultOutputDevice"])["name"]
-                finally:
-                    p.terminate()
-                changed = name != self._watch_default
-            except Exception:
-                changed = False
-        if dead or changed:
+        now = time.monotonic()
+        stale = (self.source == "loopback" and bool(self._watch_default) and now - self._last_packet > 8.0
+                 and now - self._last_restart > 8.0)
+        if dead or stale:
+            self._last_restart = now
             threading.Thread(target=self.restart, daemon=True).start()
 
     def _shutdown_locked(self) -> None:
