@@ -21,7 +21,7 @@ from ..core.config import APP_VERSION, COLOR_ORDERS, Config, app_data_dir, load_
 from ..core.mapping import OutputMapper, TestPattern
 from . import theme as T
 from .pages import Page, clear_layout, combo, set_combo
-from .widgets import ColorButton, SliderRow, Toggle, ToggleRow, button, card, hbox, label
+from .widgets import ColorButton, SliderRow, Toggle, ToggleRow, button, card, flow, hbox, label
 
 
 def spin(lo, hi, val, step=1, dec=0, suffix="") -> QSpinBox | QDoubleSpinBox:
@@ -73,6 +73,16 @@ class HardwarePage(Page):
         self._apply_timer.setSingleShot(True)
         self._apply_timer.timeout.connect(self._apply_pending)
         self._pending = None
+
+        # ---- calibration wizard (recommended path)
+        c, l = card("Asistent calibrare", "Cel mai simplu mod de a face peretele să se aprindă exact ca în simulator: "
+                                          "aplicația aprinde pe rând fiecare bucată de bandă, tu apeși pe ce profil s-a "
+                                          "aprins și dacă începe jos sau sus. Restul se setează automat.")
+        wiz = button("🪄  Pornește asistentul de calibrare", "primary")
+        wiz.setMinimumHeight(46)
+        wiz.clicked.connect(self._wizard)
+        l.addWidget(wiz)
+        self.lay.addWidget(c)
 
         # ---- profiles table
         c, l = card("Profile", "Click pe un rând sau direct pe un profil din simulator pentru a-l edita.")
@@ -173,7 +183,7 @@ class HardwarePage(Page):
         nav.addWidget(self.t_spin, 1)
         nav.addWidget(nxt)
         l.addLayout(nav)
-        l.addLayout(hbox(self.walk, self.set_count))
+        l.addWidget(flow(self.walk, self.set_count))
         self._walk_timer = QTimer(self)
         self._walk_timer.timeout.connect(lambda: self._set_index(self.t_spin.value() + 1, wrap=True))
         stop = button("Oprește testul", "danger")
@@ -245,17 +255,13 @@ class HardwarePage(Page):
         ap.clicked.connect(self._apply_geometry)
         l.addWidget(ap)
         l.addWidget(label("Fotografia reală a peretelui", "section"))
-        prow = QHBoxLayout()
         bl = button("Încarcă fotografie…")
         bl.clicked.connect(self._load_photo)
         br = button("Elimină fotografia")
         br.clicked.connect(self._remove_photo)
         self.edit_btn = button("Poziționează profilele pe foto", checkable=True)
         self.edit_btn.toggled.connect(self._edit_mode)
-        prow.addWidget(bl)
-        prow.addWidget(br)
-        prow.addWidget(self.edit_btn)
-        l.addLayout(prow)
+        l.addWidget(flow(bl, br, self.edit_btn))
         rs = button("Resetează pozițiile profilelor")
         rs.clicked.connect(self._reset_views)
         l.addWidget(rs)
@@ -292,6 +298,14 @@ class HardwarePage(Page):
         self.win.wall.profileClicked.connect(self.select)
         self.win.wall.viewsEdited.connect(self._views_edited)
         self.load()
+
+    def _wizard(self):
+        from .wizard import CalibrationWizard
+        set_combo(self.t_kind, "off")
+        self.ctrl.set_test(None)
+        dlg = CalibrationWizard(self.ctrl, self.win)
+        dlg.finished.connect(lambda _r: self.load())
+        dlg.show()
 
     # ---------------------------------------------------------------- data
     def load(self):
@@ -987,13 +1001,13 @@ class SettingsPage(Page):
         self.lay.addWidget(c)
 
         c, l = card("Configurație hardware")
-        r = QHBoxLayout()
+        btns = []
         for txt, fn in (("Exportă configurația…", self._export), ("Importă configurația…", self._import),
                         ("Valori implicite", self._reset)):
             b = button(txt, "danger" if "implicite" in txt else None)
             b.clicked.connect(fn)
-            r.addWidget(b)
-        l.addLayout(r)
+            btns.append(b)
+        l.addWidget(flow(*btns))
         l.addWidget(label(f"Datele aplicației: {app_data_dir()}", "dim", wrap=True))
         self.lay.addWidget(c)
 

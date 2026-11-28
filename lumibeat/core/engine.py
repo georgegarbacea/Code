@@ -331,7 +331,7 @@ class Engine:
         if test is not None and test.kind not in ("", "off"):
             test.t = now - self._clock0
             universes = self.mapper.map(None, 1.0, test)
-            preview = self._test_preview(test)
+            preview = self.g.zeros() if test.kind in ("chain", "chaincount") else self._test_preview(test)
         else:
             universes = self.mapper.map(frame, level)
             preview = frame * (level * self.cfg.output.max_brightness * self.mapper.last_scale)

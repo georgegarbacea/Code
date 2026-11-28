@@ -523,6 +523,14 @@ class FlowGrid(QWidget):
         return self.flow.heightForWidth(w)
 
 
+def flow(*widgets, spacing: int = 8) -> "FlowGrid":
+    """A row of widgets that wraps onto several lines when the panel is narrow."""
+    f = FlowGrid(0, spacing)
+    for wd in widgets:
+        f.add(wd)
+    return f
+
+
 # ---------------------------------------------------------------------------- meters
 class SpectrumBar(QWidget):
     """Live spectrum + beat pulse used under the simulator."""

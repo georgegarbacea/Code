@@ -67,6 +67,12 @@ class TestPattern:
     color: tuple[float, float, float] = (1.0, 1.0, 1.0)
     index: int = 0               # pixel position (from bottom) or count
     t: float = 0.0               # animation time for direction test
+    port: int = 0                # "chain" test: 0-based port
+    length: int = 0              # "chain" test: number of pixels of the segment
+
+
+CHAIN_GREEN = (0.0, 1.0, 0.0)
+CHAIN_RED = (1.0, 0.0, 0.0)
 
 
 class OutputMapper:
@@ -266,7 +272,46 @@ class OutputMapper:
             c[sel & (self.g_pos % 50 == 0)] = (1, 0, 0)
         return c
 
+    def chain_universes(self, tp: TestPattern) -> dict[int, bytes]:
+        """Calibration wizard: address the *physical* DATA chain of one port, independent of the
+        profile configuration.  kind "chain": pixels [index, index+length) are lit, the first 3 green,
+        the last 3 red, the rest dim white.  kind "chaincount": the first ``index`` pixels white, last red."""
+        port = max(0, min(3, tp.port))
+        pc = self.cfg.ports[port]
+        ppu = max(1, pc.pixels_per_universe)
+        off0 = pc.start_channel - 1
+        cap0 = max(1, min(ppu, (512 - off0) // 3))
+        if tp.kind == "chaincount":
+            n = max(0, tp.index)
+            cols = np.full((n, 3), 0.55, np.float32)
+            if n:
+                cols[-1] = CHAIN_RED
+            start = 0
+        else:
+            n = max(1, tp.length)
+            cols = np.full((n, 3), 0.12, np.float32)
+            k = min(3, max(1, n // 4))
+            cols[:k] = CHAIN_GREEN
+            cols[-k:] = CHAIN_RED
+            start = max(0, tp.index)
+        cols = cols * self.cfg.output.max_brightness
+        cols = cols ** self._gamma
+        out8 = (np.clip(cols, 0, 1) * 255 + 0.5).astype(np.uint8)[:, self._order[port]]
+        unis: dict[int, bytearray] = {u: bytearray(512) for u in self.universe_len}
+        for j in range(len(out8)):
+            i = start + j
+            if i < cap0:
+                u, ch = pc.universe, off0 + i * 3
+            else:
+                q, r = divmod(i - cap0, ppu)
+                u, ch = pc.universe + 1 + q, r * 3
+            buf = unis.setdefault(u, bytearray(512))
+            buf[ch:ch + 3] = out8[j].tobytes()
+        return {u: bytes(b) for u, b in unis.items()}
+
     def map(self, frame: np.ndarray | None, brightness: float, test: TestPattern | None = None) -> dict[int, bytes]:
+        if test is not None and test.kind in ("chain", "chaincount"):
+            return self.chain_universes(test)
         if self.total == 0:
             return {}
         if test is not None and test.kind not in ("off", ""):

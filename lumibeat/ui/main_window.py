@@ -190,11 +190,12 @@ class MainWindow(QMainWindow):
                       HardwarePage(ctrl, self), NetworkPage(ctrl, self), PhonePage(ctrl, self),
                       SettingsPage(ctrl, self)]
         for pg in self.pages:
+            self._compact(pg)
             sa = QScrollArea()
             sa.setWidgetResizable(True)
             sa.setWidget(pg)
             sa.setFrameShape(QFrame.NoFrame)
-            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
             self.stack.addWidget(sa)
         self.stack.setMinimumWidth(470)
         self.split.addWidget(self.stack)
@@ -265,10 +266,36 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+B"), self, lambda: self.ctrl.toggle_led())
         self._setup_tray()
 
+    @staticmethod
+    def _compact(page):
+        """Let every control shrink so the page always fits the panel width."""
+        from PySide6.QtWidgets import QComboBox
+        for cb in page.findChildren(QComboBox):
+            cb.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            cb.setMinimumContentsLength(8)
+        for lb in page.findChildren(QLabel):
+            if not lb.wordWrap() and len(lb.text()) > 34 and lb.property("role") not in ("h1",):
+                lb.setWordWrap(True)
+
+    def _fit_panel(self):
+        """Give the page panel at least the width its content needs (no horizontal clipping)."""
+        sa = self.stack.currentWidget()
+        pg = self.pages[self.cur_page]
+        need = pg.minimumSizeHint().width() + sa.verticalScrollBar().sizeHint().width() + 8
+        sizes = self.split.sizes()
+        total = sum(sizes)
+        if total <= 0:
+            return
+        want = max(need, int(total * 0.40))
+        want = min(want, total - 420)
+        if abs(sizes[1] - want) > 4 and sizes[1] < want:
+            self.split.setSizes([total - want, want])
+
     def eventFilter(self, obj, ev):
         from PySide6.QtCore import QEvent
         if obj is self.stage and ev.type() == QEvent.Resize:
             QTimer.singleShot(0, self._fit_wall)
+            QTimer.singleShot(0, self._fit_panel)
         return super().eventFilter(obj, ev)
 
     def _fit_wall(self):
@@ -294,6 +321,7 @@ class MainWindow(QMainWindow):
         self.h_sub.setText(pg.subtitle)
         self.wall.show_labels = i >= 4
         pg.on_show()
+        QTimer.singleShot(0, self._fit_panel)
 
     def toast(self, msg: str):
         self.toast_w.show_msg(msg)

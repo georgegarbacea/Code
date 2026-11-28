@@ -18,7 +18,7 @@ from ..effects.palettes import PALETTE_ORDER, PALETTES
 from ..effects.transitions import TRANSITIONS
 from . import theme as T
 from .widgets import (BigToggleButton, ColorButton, EffectCard, FlowGrid, PaletteChip, SliderRow, Toggle,
-                      ToggleRow, button, card, hbox, label)
+                      ToggleRow, button, card, flow, hbox, label)
 
 
 class Page(QWidget):
@@ -173,13 +173,15 @@ class MusicPage(Page):
             cb.colorChanged.connect(lambda _c, k=i: self._custom_changed())
             self.custom_btns.append(cb)
             crow.addWidget(cb)
-        crow.addSpacing(16)
-        crow.addWidget(label("Culoarea mea:", "muted"))
-        self.color_btn = ColorButton(st.color, 30)
-        self.color_btn.colorChanged.connect(lambda c: self.ctrl.set_state(color=c, palette="color"))
-        crow.addWidget(self.color_btn)
         crow.addStretch(1)
         l.addLayout(crow)
+        crow2 = QHBoxLayout()
+        crow2.addWidget(label("Culoarea mea:", "muted"))
+        self.color_btn = ColorButton(st.color, 30)
+        self.color_btn.colorChanged.connect(lambda c: self.ctrl.set_state(color=c, palette="color"))
+        crow2.addWidget(self.color_btn)
+        crow2.addStretch(1)
+        l.addLayout(crow2)
         self.lay.addWidget(c)
 
         self.param_card, self.param_lay = card("Parametrii efectului")
@@ -674,20 +676,20 @@ class StudioPage(Page):
         self.plist.setMinimumHeight(170)
         self.plist.itemDoubleClicked.connect(lambda _: self._load())
         l.addWidget(self.plist)
-        row1 = QHBoxLayout()
+        row1 = []
         for txt, fn, kind in (("Salvează curentă", self._save, "primary"), ("Încarcă", self._load, None),
                               ("Șterge", self._delete, "danger")):
             b = button(txt, kind)
             b.clicked.connect(fn)
-            row1.addWidget(b)
-        l.addLayout(row1)
-        row2 = QHBoxLayout()
+            row1.append(b)
+        l.addWidget(flow(*row1))
+        row2 = []
         for txt, fn in (("Exportă selectată", lambda: self._export(True)), ("Exportă toate", lambda: self._export(False)),
                         ("Importă…", self._import)):
             b = button(txt)
             b.clicked.connect(fn)
-            row2.addWidget(b)
-        l.addLayout(row2)
+            row2.append(b)
+        l.addWidget(flow(*row2))
         self.lay.addWidget(c)
         self.lay.addStretch(1)
         self._push_timer = QTimer(self)
