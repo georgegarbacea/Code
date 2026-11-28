@@ -170,12 +170,10 @@ class HardwarePage(Page):
                                 tip="La testul de numărare: când lumina ajunge exact la capătul profilului, apasă aici")
         self.set_count.clicked.connect(self._apply_count)
         nav.addWidget(prev)
-        nav.addWidget(self.t_spin)
+        nav.addWidget(self.t_spin, 1)
         nav.addWidget(nxt)
-        nav.addWidget(self.walk)
-        nav.addStretch(1)
-        nav.addWidget(self.set_count)
         l.addLayout(nav)
+        l.addLayout(hbox(self.walk, self.set_count))
         self._walk_timer = QTimer(self)
         self._walk_timer.timeout.connect(lambda: self._set_index(self.t_spin.value() + 1, wrap=True))
         stop = button("Oprește testul", "danger")
@@ -610,6 +608,43 @@ class NetworkPage(Page):
         l.addWidget(save)
         self.lay.addWidget(c)
 
+        c, l = card("Compatibilitate pachete & diagnostic",
+                    "Dacă rețeaua e «online» dar LED-urile nu se aprind, controlerul probabil vrea pachete complete "
+                    "sau toate universurile configurate în BanlanX.")
+        self.full = ToggleRow("Pachete complete (512 canale / univers)", n.full_packets,
+                              "Recomandat pentru SP801E")
+        l.addWidget(self.full)
+        self.upp = spin(0, 16, n.universes_per_port)
+        l.addLayout(hbox(label("Universuri trimise pe port (= «Uni Count» din BanlanX, 0 = automat)", "muted"),
+                         "stretch", self.upp))
+        self.seq = ToggleRow("Număr de secvență Art-Net", n.use_sequence,
+                             "Dezactivează doar dacă controlerul ignoră pachetele")
+        l.addWidget(self.seq)
+        save2 = button("Salvează și aplică", "primary")
+        save2.clicked.connect(self._save)
+        l.addWidget(save2)
+        l.addWidget(label("Scanare universuri: aprinde pe rând universurile 0–15 cu alb slab (câte 3 s). Uită-te la "
+                          "perete și notează la ce număr se aprinde fiecare port.", "dim", wrap=True))
+        self.scan_btn = button("▶  Pornește scanarea universurilor 0–15", "accent", checkable=True)
+        self.scan_btn.toggled.connect(self._scan_toggle)
+        l.addWidget(self.scan_btn)
+        self.scan_lbl = label("", "h1")
+        self.scan_lbl.setAlignment(Qt.AlignCenter)
+        l.addWidget(self.scan_lbl)
+        hold = QHBoxLayout()
+        self.scan_spin = spin(0, 32767, 1)
+        hb = button("Aprinde doar universul")
+        hb.clicked.connect(self._scan_hold)
+        hold.addWidget(hb)
+        hold.addWidget(self.scan_spin)
+        stopb = button("Oprește", "danger")
+        stopb.clicked.connect(self._scan_stop)
+        hold.addWidget(stopb)
+        l.addLayout(hold)
+        self._scan_timer = QTimer(self)
+        self._scan_timer.timeout.connect(self._scan_next)
+        self.lay.addWidget(c)
+
         c, l = card("Descoperire automată (ArtPoll)")
         self.scan = button("Caută controlere în rețea")
         self.scan.clicked.connect(self._scan)
@@ -617,14 +652,9 @@ class NetworkPage(Page):
         self.nodes = QListWidget()
         self.nodes.setMinimumHeight(90)
         l.addWidget(self.nodes)
-        r = QHBoxLayout()
         use = button("Folosește IP-ul selectat")
         use.clicked.connect(self._use_node)
-        mapb = button("Aplică maparea universurilor din controler")
-        mapb.clicked.connect(self._map_node)
-        r.addWidget(use)
-        r.addWidget(mapb)
-        l.addLayout(r)
+        l.addWidget(use)
         self.lay.addWidget(c)
 
         c, l = card("Verificare compatibilitate", "Rulează înainte de prima transmisie: rețea, ArtPoll, porturi, "
@@ -668,8 +698,54 @@ class NetworkPage(Page):
         n.adaptive_fps = self.adapt.isChecked()
         n.send_on_change = self.change.isChecked()
         n.art_sync = self.sync.isChecked()
+        n.full_packets = self.full.isChecked()
+        n.universes_per_port = int(self.upp.value())
+        n.use_sequence = self.seq.isChecked()
+        if not n.output_enabled:
+            n.output_enabled = True
+            self.out.setChecked(True)
         self.ctrl.apply_config(cfg, restart_audio=False)
-        self.win.toast("Setări de rețea salvate")
+        self.win.toast("Setări de rețea salvate – transmisia este pornită")
+
+    # ---- universe scan
+    def _scan_toggle(self, on):
+        if on:
+            if not self.ctrl.cfg.network.output_enabled:
+                self.ctrl.set_output_enabled(True)
+                self.out.setChecked(True)
+            self._scan_u = -1
+            self._scan_next()
+            self._scan_timer.start(3000)
+        else:
+            self._scan_stop()
+
+    def _scan_next(self):
+        self._scan_u = (self._scan_u + 1) % 16
+        self.ctrl.engine.scan_universe = self._scan_u
+        self.scan_lbl.setText(f"Universul {self._scan_u}")
+
+    def _scan_hold(self):
+        self._scan_timer.stop()
+        self.scan_btn.blockSignals(True)
+        self.scan_btn.setChecked(False)
+        self.scan_btn.blockSignals(False)
+        if not self.ctrl.cfg.network.output_enabled:
+            self.ctrl.set_output_enabled(True)
+            self.out.setChecked(True)
+        u = int(self.scan_spin.value())
+        self.ctrl.engine.scan_universe = u
+        self.scan_lbl.setText(f"Universul {u} (fix)")
+
+    def _scan_stop(self):
+        self._scan_timer.stop()
+        self.ctrl.engine.scan_universe = None
+        self.scan_lbl.setText("")
+        self.scan_btn.blockSignals(True)
+        self.scan_btn.setChecked(False)
+        self.scan_btn.blockSignals(False)
+
+    def on_hide(self):
+        self._scan_stop()
 
     def _scan(self):
         self.scan.setEnabled(False)

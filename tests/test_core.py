@@ -139,3 +139,17 @@ def test_strobe_never_persisted():
     st = ShowState(strobe_enabled=True)
     assert "strobe_enabled" not in st.to_dict(persist=True)
     assert ShowState.from_dict({"strobe_enabled": True}).strobe_enabled is False
+
+
+def test_full_packets_and_universe_padding():
+    c = Config.default()
+    c.network.full_packets = True
+    c.network.universes_per_port = 3
+    c.ports = [type(c.ports[0])(number=i + 1, universe=1 + 3 * i) for i in range(4)]
+    m = OutputMapper(c)
+    assert m.port_universes[0] == [1, 2, 3]
+    assert m.port_universes[3] == [10, 11, 12]
+    unis = m.map(np.ones((12, c.wall.matrix_rows, 3), np.float32), 1.0)
+    assert sorted(unis) == list(range(1, 13))
+    assert all(len(v) == 512 for v in unis.values())
+    assert m.report().ok

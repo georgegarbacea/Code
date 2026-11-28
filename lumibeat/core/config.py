@@ -114,6 +114,8 @@ class NetworkConfig:
     art_sync: bool = False
     poll_interval_s: float = 6.0
     use_sequence: bool = True
+    full_packets: bool = True             # always send 512 channels per universe (some nodes require it)
+    universes_per_port: int = 0           # send at least N universes per port (= "Uni Count"); 0 = only what is needed
 
 
 @dataclass
@@ -245,6 +247,7 @@ class Config:
         o.gamma = float(min(3.0, max(1.0, o.gamma)))
         n = self.network
         n.target_fps = int(min(60, max(5, n.target_fps)))
+        n.universes_per_port = int(min(16, max(0, n.universes_per_port)))
         self.app.sim_fps = int(min(120, max(20, self.app.sim_fps)))
         self.audio.block_size = int(min(2048, max(128, self.audio.block_size)))
 

@@ -68,30 +68,33 @@ def run_check(cfg: Config, artnet: ArtNetOutput, nodes: list[NodeInfo] | None = 
 
     # 2. Discovery
     nodes = nodes if nodes is not None else artnet.discover(2.0)
-    node = None
     if ip:
-        node = next((n for n in nodes if n.ip == ip), None)
-    elif len(nodes) == 1:
-        node = nodes[0]
+        mine = [n for n in nodes if n.ip == ip]
+    elif nodes:
+        first_ip = nodes[0].ip
+        mine = [n for n in nodes if n.ip == first_ip]
+    else:
+        mine = []
+    mine.sort(key=lambda n: n.bind_index)
+    node = mine[0] if mine else None
     rep.node = node
     if node:
+        reported = sorted({u for n in mine for u in n.sw_out})
         name_ok = node.looks_like_sp801e
-        rep.add("ok" if name_ok else "warn", "Răspuns ArtPoll", node.describe() +
+        rep.add("ok" if name_ok else "warn", "Răspuns ArtPoll", node.describe().split("  universuri")[0] +
+                f"  universuri raportate: {', '.join(map(str, reported)) or '-'}" +
+                (f" ({len(mine)} răspunsuri grupate)" if len(mine) > 1 else "") +
                 ("" if name_ok else "  – numele nu indică un SP801E; verifică modelul."))
-        if node.num_ports and node.num_ports < max(p.port for p in cfg.profiles):
-            rep.add("error", "Porturi insuficiente",
-                    f"Nodul raportează {node.num_ports} porturi, configurația folosește portul "
-                    f"{max(p.port for p in cfg.profiles)}.")
-        if node.sw_out:
-            mism = []
-            for i, addr in enumerate(node.sw_out[:4]):
-                if i < len(cfg.ports) and cfg.ports[i].universe != addr:
-                    mism.append(f"port {i + 1}: controler={addr}, aplicație={cfg.ports[i].universe}")
-            if mism:
-                rep.add("warn", "Universurile diferă de cele raportate de controler",
-                        "; ".join(mism) + ". Apasă «Aplică maparea din controler» sau corectează în aplicația BanlanX.")
+        used = sorted({u for us in mapper.port_universes for u in us})
+        if reported:
+            missing = [u for u in used if u not in reported]
+            if missing:
+                rep.add("warn", "Universuri pe care controlerul nu le raportează",
+                        f"Aplicația trimite pe {', '.join(map(str, missing))}, controlerul raportează "
+                        f"{', '.join(map(str, reported))}. Verifică universurile din BanlanX sau folosește "
+                        "«Scanare universuri» din pagina Rețea.")
             else:
-                rep.add("ok", "Mapare universuri", "Universurile de start coincid cu cele raportate de controler.")
+                rep.add("ok", "Mapare universuri", "Toate universurile trimise sunt raportate de controler.")
     else:
         rep.add("warn", "Fără răspuns ArtPoll",
                 "Controlerul nu a răspuns la descoperire. Unele firmware-uri SP801E nu răspund la ArtPoll; "

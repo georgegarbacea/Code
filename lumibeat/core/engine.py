@@ -58,6 +58,7 @@ class Engine:
         self._running = False
         self.director = PartyDirector()
         self.test: TestPattern | None = None
+        self.scan_universe: int | None = None    # diagnostic: light one universe with dim white
         self.error = ""
         self.fps = 0.0
         self._last_counts = (0, 0, 0)
@@ -316,6 +317,17 @@ class Engine:
 
         # ---- output
         test = self.test
+        scan = self.scan_universe
+        if scan is not None:
+            universes = {int(scan): bytes([60]) * 510 + b"\x00\x00"}
+            preview = self.g.zeros()
+            if self.artnet.enabled and now - self._last_send_t > 1 / 25:
+                if self.artnet.send_frame(universes):
+                    self._last_send_t = now
+            out = FrameOut(preview=preview, t=now - self._clock0, fps=self.fps, effect="scan",
+                           effect_name=f"Scanare univers {scan}", audio=f, test=True)
+            self.latest = out
+            return out
         if test is not None and test.kind not in ("", "off"):
             test.t = now - self._clock0
             universes = self.mapper.map(None, 1.0, test)

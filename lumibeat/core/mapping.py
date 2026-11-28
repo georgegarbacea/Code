@@ -134,6 +134,7 @@ class OutputMapper:
 
         # universe slices
         self.slices: list[UniverseSlice] = []
+        self.pad_universes: list[tuple[int, int]] = []
         self.port_universes: list[list[int]] = []
         for port in range(4):
             pc = cfg.ports[port]
@@ -155,14 +156,22 @@ class OutputMapper:
                 remaining -= cnt
                 uni += 1
                 off = 0
+            # pad with empty universes up to the controller's "Uni Count" for this port
+            want = cfg.network.universes_per_port
+            while want and len(us) < want:
+                self.pad_universes.append((port, uni))
+                us.append(uni)
+                uni += 1
             self.port_universes.append(us)
         self.universe_len: dict[int, int] = {}
         for sl_ in self.slices:
             end = sl_.channel_offset + sl_.count * 3
             self.universe_len[sl_.universe] = max(self.universe_len.get(sl_.universe, 0), end)
+        for _, u in self.pad_universes:
+            self.universe_len.setdefault(u, 2)
         for u in list(self.universe_len):
             ln = self.universe_len[u]
-            self.universe_len[u] = min(512, max(2, ln + (ln & 1)))
+            self.universe_len[u] = 512 if cfg.network.full_packets else min(512, max(2, ln + (ln & 1)))
         self._order = [_ORDER_IDX.get(cfg.ports[p].color_order, (0, 1, 2)) for p in range(4)]
         self._gamma = float(cfg.output.gamma)
         self.last_power_w = 0.0
@@ -195,6 +204,10 @@ class OutputMapper:
                         f"Universul {s.universe}: canalele portului {s.port + 1} se suprapun cu portul {p2 + 1}."
                     )
             used.setdefault(s.universe, []).append((a, b, s.port))
+        for port, u in self.pad_universes:
+            for (_, _, p2) in used.get(u, []):
+                if p2 != port:
+                    r.errors.append(f"Universul {u} (completare port {port + 1}) este folosit și de portul {p2 + 1}.")
         worst = max(self.port_len) if self.port_len else 0
         t_us = worst * WS2811_US_PER_PIXEL + WS2811_RESET_US
         r.max_fps_ws2811 = 1e6 / t_us if worst else 0.0

@@ -362,7 +362,8 @@ class MainWindow(QMainWindow):
         if fo.t == self._last_t:
             return
         self._last_t = fo.t
-        self.wall.overlay_text = "TEST CALIBRARE ACTIV" if fo.test else ""
+        self.wall.overlay_text = (fo.effect_name.upper() if fo.effect == "scan" else "TEST CALIBRARE ACTIV") \
+            if fo.test else ""
         self.wall.set_frame(fo.preview, fo.t)
         a = fo.audio
         if a.beat_count != self._last_beat:

@@ -444,6 +444,7 @@ class WallViewGL(WallMixin, QOpenGLWidget):
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA, img.width(), img.height(), 0, GL.GL_RGBA,
                         GL.GL_UNSIGNED_BYTE, data)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4)
         self._bg_dirty = False
 
     def paintGL(self):
@@ -457,8 +458,11 @@ class WallViewGL(WallMixin, QOpenGLWidget):
                 self.glFailed.emit(str(e))
             finally:
                 GL.glUseProgram(0)
+                GL.glActiveTexture(GL.GL_TEXTURE1)
                 GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
                 GL.glActiveTexture(GL.GL_TEXTURE0)
+                GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+                GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4)
                 p.endNativePainting()
         self.paint_overlay(p)
         p.end()
@@ -475,6 +479,7 @@ class WallViewGL(WallMixin, QOpenGLWidget):
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
         GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, 48, rows, 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE,
                         np.ascontiguousarray(tex))
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 4)   # restore: Qt's glyph cache expects the default
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.tex_bg)
         GL.glUseProgram(self.prog)
