@@ -235,6 +235,9 @@ class CalibrationWizard(QDialog):
         r = QHBoxLayout()
         no = button("Nu, ceva nu e bine – reiau")
         no.clicked.connect(self.start)
+        close = button("Închide (păstrează setările)")
+        close.clicked.connect(self.finish)
+        v.addWidget(close)
         yes = button("Da, arată corect ✓", "primary")
         yes.setMinimumHeight(48)
         yes.clicked.connect(self.finish)
@@ -372,11 +375,31 @@ class CalibrationWizard(QDialog):
                     f"universurile de start vor fi setate automat la "
                     f"{', '.join(str(starts[0] + need * i) for i in range(4))}.</p>")
         self._need_universes = need if need > have else None
+        gaps = []
+        for port in range(4):
+            ks = sorted(kk for (pp, kk) in self.assign if pp == port)
+            if ks:
+                missing = [kk + 1 for kk in range(ks[-1]) if kk not in ks]
+                if missing:
+                    gaps.append(f"portul {port + 1}: bucata {', '.join(map(str, missing))}")
+        if gaps:
+            warn += (f"<p style='color:{T.WARN}'>⚠ Bucăți neidentificate ({'; '.join(gaps)}). Sunt păstrate ca "
+                     "spațiu gol în lanț, ca restul profilelor să primească datele corecte. Dacă vrei, apasă "
+                     "«Reia de la început».</p>")
         self.summary.setText(
             f"<p>Pixeli pe profil: <b>{self.n}</b>  ·  profile identificate: <b>{len(self.assign)} din 12</b></p>"
             f"<table cellspacing=0 cellpadding=5>{''.join(rows)}</table>{warn}")
 
     def apply(self):
+        if self._need_universes:
+            from PySide6.QtWidgets import QMessageBox
+            q = QMessageBox.question(
+                self, "Universuri",
+                f"Pixelii nu mai încap în universurile actuale.\n\nAi pus deja în BanlanX «Uni Count = "
+                f"{self._need_universes}» la fiecare port?\n\nDa = aplic și schimb universurile în LumiBeat.\n"
+                "Nu = fă întâi schimbarea în BanlanX, apoi apasă din nou «Aplică setările».")
+            if q != QMessageBox.Yes:
+                return
         cfg = self.ctrl.cfg.copy()
         by_profile = {a[0]: (s, a[1]) for s, a in self.assign.items()}
         for i, pr in enumerate(cfg.profiles):
@@ -385,6 +408,11 @@ class CalibrationWizard(QDialog):
             if i in by_profile:
                 (p, k), up = by_profile[i]
                 pr.port, pr.chain_pos, pr.data_up, pr.enabled = p + 1, k, up, True
+                # segments of this port before k that were not identified keep their place in the
+                # DATA chain: skip their pixels so the following profiles still get the right data
+                earlier = sorted(kk for (pp, kk) in self.assign if pp == p and kk < k)
+                prev = earlier[-1] if earlier else -1
+                pr.skip_pixels = (k - prev - 1) * self.n
             else:
                 pr.enabled = False
                 pr.chain_pos = 50 + i       # keep it at the end of its chain

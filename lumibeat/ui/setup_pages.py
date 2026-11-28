@@ -304,7 +304,8 @@ class HardwarePage(Page):
         set_combo(self.t_kind, "off")
         self.ctrl.set_test(None)
         dlg = CalibrationWizard(self.ctrl, self.win)
-        dlg.finished.connect(lambda _r: self.load())
+        dlg.setModal(True)          # stays in front: the wall shows test patterns while it is open
+        dlg.finished.connect(lambda _r: (self.ctrl.set_test(None), self.load()))
         dlg.show()
 
     # ---------------------------------------------------------------- data
